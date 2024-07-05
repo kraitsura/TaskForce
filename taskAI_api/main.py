@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
 import os
@@ -11,6 +13,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Allows the Next.js dev server
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Constants for token limits
@@ -31,8 +44,7 @@ class StructureStep(BaseModel):
     time_estimate: str
 
 class SubTaskSelection(BaseModel):
-    selected_subtasks: List[int]
-    task_description: str
+    selected_subtasks: List[SubTask]
 
 def num_tokens_from_string(string: str, model: str = MODEL) -> int:
     """Returns the number of tokens in a text string."""
@@ -120,11 +132,23 @@ def get_overall_structure(selected_subtasks: List[SubTask]) -> List[StructureSte
 
 @app.post("/get_subtasks")
 async def api_get_subtasks(task: Task):
-    return get_subtasks(task.description)
+    try:
+        return get_subtasks(task.description)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"msg": str(e)}
+        )
 
 @app.post("/get_overall_structure")
 async def api_get_overall_structure(selection: SubTaskSelection):
-    return get_overall_structure(selection.selected_subtasks)
+    try:
+        return get_overall_structure(selection.selected_subtasks)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"msg": str(e)}
+        )
 
 def main():
     print("Welcome to the Task Breakdown Tool!")
